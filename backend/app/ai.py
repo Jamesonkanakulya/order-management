@@ -88,8 +88,12 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
             max_tokens=2048
         )
         
-        content = response.choices[0].message.content
-        logger.info(f"AI response: {content[:200]}...")
+        message = response.choices[0].message
+        content = message.content
+        logger.info(f"AI response type: {type(content)}, content: {str(content)[:200]}...")
+        
+        if isinstance(content, dict):
+            return content
         
         try:
             return json.loads(content)
@@ -102,6 +106,8 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
         
     except Exception as e:
         logger.error(f"AI API error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {"error": str(e)}
 
 
