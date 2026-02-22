@@ -56,7 +56,6 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
     """Call GitHub AI API using azure-ai-inference"""
     try:
         from azure.ai.inference import ChatCompletionsClient
-        from azure.ai.inference.models import SystemMessage, UserMessage
         from azure.core.credentials import AzureKeyCredential
     except ImportError:
         logger.error("azure-ai-inference not installed")
@@ -80,8 +79,8 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
         
         response = client.complete(
             messages=[
-                SystemMessage(prompt),
-                UserMessage(user_content)
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": user_content}
             ],
             model=model,
             temperature=0.1,
