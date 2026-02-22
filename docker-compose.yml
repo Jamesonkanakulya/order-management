@@ -12,6 +12,9 @@ services:
       - ./backend/data:/app/data
     environment:
       - PORT=3000
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AI_ENDPOINT=${AI_ENDPOINT:-https://models.github.ai/inference}
+      - AI_MODEL=${AI_MODEL:-openai/gpt-5}
     restart: unless-stopped
 
   frontend:

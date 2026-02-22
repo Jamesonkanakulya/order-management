@@ -1,32 +1,56 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../models/database.js';
+import { classifyEmail, extractOrderData } from '../services/ai.js';
 
 const router = express.Router();
 
-router.post('/order', (req, res) => {
+router.post('/order', async (req, res) => {
   const db = getDb();
-  const { output } = req.body;
+  const { subject, body, from, snippet } = req.body;
 
-  if (!output) {
-    return res.status(400).json({ error: 'Missing order data' });
+  if (!body && !snippet) {
+    return res.status(400).json({ error: 'Missing email content (body or snippet)' });
   }
 
-  const { 
-    order_number, 
-    vendor, 
-    customer_name, 
-    order_status, 
-    delivery_info, 
-    items, 
-    order_total 
-  } = output;
-
-  if (!order_number) {
-    return res.status(400).json({ error: 'Missing order number' });
-  }
+  const emailContent = body || snippet;
 
   try {
+    const classification = await classifyEmail(subject || '', emailContent);
+
+    if (!classification.isOrderEmail) {
+      return res.json({
+        message: 'Email is not order-related',
+        classification,
+        action: 'skipped'
+      });
+    }
+
+    const extraction = await extractOrderData(subject || '', emailContent);
+
+    if (!extraction.extraction_success) {
+      return res.json({
+        message: 'Failed to extract order data',
+        classification,
+        extraction,
+        action: 'failed'
+      });
+    }
+
+    const { 
+      order_number, 
+      vendor, 
+      customer_name, 
+      order_status, 
+      delivery_info, 
+      items, 
+      order_total 
+    } = extraction;
+
+    if (!order_number) {
+      return res.status(400).json({ error: 'Could not extract order number' });
+    }
+
     const existingOrder = db.prepare('SELECT * FROM orders WHERE order_number = ?').get(order_number);
 
     if (existingOrder) {
@@ -63,10 +87,12 @@ router.post('/order', (req, res) => {
       const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(existingOrder.id);
       const orderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(existingOrder.id);
 
-      res.json({ 
+      return res.json({ 
         message: 'Order updated successfully', 
         order: { ...updatedOrder, items: orderItems },
-        action: 'updated'
+        action: 'updated',
+        classification,
+        extraction
       });
     } else {
       const id = uuidv4();
@@ -101,10 +127,12 @@ router.post('/order', (req, res) => {
       const newOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
       const orderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(id);
 
-      res.status(201).json({ 
+      return res.status(201).json({ 
         message: 'Order created successfully', 
         order: { ...newOrder, items: orderItems },
-        action: 'created'
+        action: 'created',
+        classification,
+        extraction
       });
     }
   } catch (error) {

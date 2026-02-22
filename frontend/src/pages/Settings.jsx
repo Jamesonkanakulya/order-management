@@ -142,35 +142,37 @@ function Settings() {
       <div className="settings-section">
         <h2 className="settings-title">n8n Integration</h2>
         <p style={{ color: 'var(--text-light)', marginBottom: '1rem', fontSize: '0.875rem' }}>
-          To integrate with n8n, replace the Notion nodes in your workflow with an HTTP Request node.
+          n8n handles only the email trigger. The backend handles AI classification, extraction, and database operations.
         </p>
         <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '0.375rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}><strong>Endpoint:</strong></div>
+          <div style={{ marginBottom: '0.5rem' }}><strong>Webhook Endpoint:</strong></div>
           <div style={{ color: 'var(--primary)', marginBottom: '1rem' }}>POST http://your-server:3000/api/webhooks/order</div>
           
           <div style={{ marginBottom: '0.5rem' }}><strong>Request Body:</strong></div>
           <pre style={{ background: 'var(--surface)', padding: '0.75rem', borderRadius: '0.25rem', overflow: 'auto' }}>
 {`{
-  "output": {
-    "order_number": "123-456",
-    "vendor": "Amazon",
-    "customer_name": "John Doe",
-    "order_status": "Shipped",
-    "delivery_info": {
-      "location": "Dubai",
-      "expected_date": "2025-10-15"
-    },
-    "items": [
-      {
-        "item_name": "Product Name",
-        "quantity": 1,
-        "price": "AED100.00",
-        "currency": "AED"
-      }
-    ]
-  }
+  "subject": "Your Amazon order #408-0237654-1573974",
+  "body": "Full email body text...",
+  "snippet": "Short snippet...",
+  "from": "order-update@amazon.com"
 }`}
           </pre>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h2 className="settings-title">Environment Variables</h2>
+        <p style={{ color: 'var(--text-light)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+          Configure these in your deployment environment or .env file.
+        </p>
+        <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '0.375rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}><strong>Required:</strong></div>
+          <div style={{ marginBottom: '1rem', color: 'var(--primary)' }}>GITHUB_TOKEN</div>
+          <div style={{ marginBottom: '1rem' }}>Your GitHub token for AI inference</div>
+          
+          <div style={{ marginBottom: '0.5rem' }}><strong>Optional:</strong></div>
+          <div style={{ marginBottom: '0.5rem' }}>AI_ENDPOINT (default: https://models.github.ai/inference)</div>
+          <div>AI_MODEL (default: openai/gpt-5)</div>
         </div>
       </div>
 
@@ -189,7 +191,7 @@ function Settings() {
             <li>GET /orders/search/:orderNumber - Search by order number</li>
           </ul>
 
-={{ marginBottom:          <div style '0.5rem', marginTop: '1rem' }}><strong>Settings</strong></div>
+          <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Settings</strong></div>
           <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
             <li>GET /settings - Get all settings</li>
             <li>GET /settings/vendors - Get vendor list</li>
@@ -201,6 +203,11 @@ function Settings() {
           <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Stats</strong></div>
           <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
             <li>GET /stats - Get dashboard statistics</li>
+          </ul>
+
+          <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Webhooks</strong></div>
+          <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
+            <li>POST /webhooks/order - Process email (n8n integration)</li>
           </ul>
         </div>
       </div>
