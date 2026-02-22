@@ -68,7 +68,7 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
         return {"error": "GITHUB_TOKEN not configured"}
     
     endpoint = os.getenv("GITHUB_ENDPOINT", "https://models.github.ai/inference")
-    model = os.getenv("GITHUB_MODEL", "openai/gpt-5")
+    model = os.getenv("GITHUB_MODEL", "openai/gpt-4o")
     
     logger.info(f"Calling AI API with model: {model}")
     
