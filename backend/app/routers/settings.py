@@ -30,34 +30,6 @@ async def get_all_settings(db: AsyncSession = Depends(get_db)):
     return settings_obj
 
 
-@router.get("/{key}", response_model=SettingResponse)
-async def get_setting(key: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Setting).where(Setting.key == key))
-    setting = result.scalar_one_or_none()
-    if not setting:
-        raise HTTPException(status_code=404, detail="Setting not found")
-    return {"key": setting.key, "value": setting.value}
-
-
-@router.put("/{key}")
-async def update_setting(key: str, body: dict, db: AsyncSession = Depends(get_db)):
-    value = body.get("value")
-    if isinstance(value, list):
-        value = str(value)
-    
-    result = await db.execute(select(Setting).where(Setting.key == key))
-    setting = result.scalar_one_or_none()
-    
-    if setting:
-        setting.value = value
-    else:
-        setting = Setting(key=key, value=value)
-        db.add(setting)
-    
-    await db.commit()
-    return {"key": key, "value": value}
-
-
 @router.get("/vendors", response_model=VendorsResponse)
 async def get_vendors(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Setting).where(Setting.key == "vendors"))
@@ -114,3 +86,31 @@ async def update_statuses(body: StatusesResponse, db: AsyncSession = Depends(get
     
     await db.commit()
     return {"statuses": body.statuses}
+
+
+@router.get("/{key}", response_model=SettingResponse)
+async def get_setting(key: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Setting).where(Setting.key == key))
+    setting = result.scalar_one_or_none()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    return {"key": setting.key, "value": setting.value}
+
+
+@router.put("/{key}")
+async def update_setting(key: str, body: dict, db: AsyncSession = Depends(get_db)):
+    value = body.get("value")
+    if isinstance(value, list):
+        value = str(value)
+    
+    result = await db.execute(select(Setting).where(Setting.key == key))
+    setting = result.scalar_one_or_none()
+    
+    if setting:
+        setting.value = value
+    else:
+        setting = Setting(key=key, value=value)
+        db.add(setting)
+    
+    await db.commit()
+    return {"key": key, "value": value}
