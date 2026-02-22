@@ -53,14 +53,8 @@ If not order-related:
 
 
 async def call_ai_api(prompt: str, user_content: str) -> dict:
-    """Call GitHub AI API using azure-ai-inference"""
-    try:
-        from azure.ai.inference import ChatCompletionsClient
-        from azure.ai.inference.models import SystemMessage, UserMessage
-        from azure.core.credentials import AzureKeyCredential
-    except ImportError:
-        logger.error("azure-ai-inference not installed")
-        return {"error": "AI library not installed"}
+    """Call GitHub AI API using httpx"""
+    import httpx
     
     token = os.getenv("GITHUB_TOKEN")
     if not token:
@@ -73,34 +67,43 @@ async def call_ai_api(prompt: str, user_content: str) -> dict:
     logger.info(f"Calling AI API with model: {model}")
     
     try:
-        client = ChatCompletionsClient(
-            endpoint=endpoint,
-            credential=AzureKeyCredential(token),
-        )
-        
-        response = client.complete(
-            messages=[
-                SystemMessage(prompt),
-                UserMessage(user_content)
-            ],
-            model=model,
-            temperature=0.1,
-            max_tokens=2048
-        )
-        
-        content = response.choices[0].message.content
-        logger.info(f"AI response: {content[:200]}...")
-        
-        # Try to parse JSON
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown
-            import re
-            json_match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-            raise
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{endpoint}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": user_content}
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 2048
+                },
+                timeout=60.0
+            )
+            
+            logger.info(f"AI response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"AI API error: {response.text}")
+                return {"error": f"API error: {response.status_code}", "details": response.text}
+            
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+            logger.info(f"AI response: {content[:200]}...")
+            
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                import re
+                json_match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+                raise
         
     except Exception as e:
         logger.error(f"AI API error: {e}")
