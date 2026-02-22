@@ -53,7 +53,7 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
     month_delivery_result = await db.execute(
         select(func.count(Order.id)).where(
             Order.status == "Delivered",
-            func.strftime("%Y-%m", Order.created_at) == func.strftime("%Y-%m", "now")
+            func.to_char(Order.created_at, "YYYY-MM") == func.to_char(func.current_date(), "YYYY-MM")
         )
     )
     delivered_this_month = month_delivery_result.scalar() or 0
