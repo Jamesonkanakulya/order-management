@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
@@ -7,6 +7,9 @@ from ..models import Order, OrderItem
 from ..schemas import WebhookRequest, WebhookResponse
 from ..ai import classify_email, extract_order_data
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
@@ -27,22 +30,70 @@ def order_to_response(order):
     }
 
 
+def extract_email_data(body: dict):
+    """Extract email data from various formats (n8n Gmail trigger, direct, etc.)"""
+    
+    # Try n8n Gmail trigger format first
+    if "Subject" in body:
+        subject = body.get("Subject", "")
+        # n8n Gmail trigger sends 'snippet' at top level
+        snippet = body.get("snippet", "")
+        from_email = body.get("From", "")
+        return subject, snippet, from_email
+    
+    # Try direct format
+    if "subject" in body:
+        subject = body.get("subject", "")
+        snippet = body.get("body") or body.get("snippet", "")
+        from_email = body.get("from", body.get("from_email", ""))
+        return subject, snippet, from_email
+    
+    # Try payload format (sometimes n8n wraps it)
+    payload = body.get("payload", {})
+    if payload:
+        if "Subject" in payload:
+            subject = payload.get("Subject", "")
+            snippet = body.get("snippet", payload.get("snippet", ""))
+            from_email = body.get("From", payload.get("From", ""))
+            return subject, snippet, from_email
+    
+    return "", "", ""
+
+
 @router.post("/order", response_model=WebhookResponse)
-async def handle_webhook(body: WebhookRequest, db: AsyncSession = Depends(get_db)):
-    if not body.body and not body.snippet:
-        raise HTTPException(status_code=400, detail="Missing email content (body or snippet)")
+async def handle_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    try:
+        body = await request.json()
+    except:
+        body = {}
     
-    email_content = body.body or body.snippet
+    logger.info(f"Webhook received: {body}")
     
-    classification = await classify_email(body.subject or "", email_content)
+    # Extract email data from various formats
+    subject, snippet, from_email = extract_email_data(body)
+    
+    logger.info(f"Extracted - Subject: {subject}, Snippet: {snippet[:100] if snippet else 'None'}, From: {from_email}")
+    
+    if not subject and not snippet:
+        return {
+            "message": "Missing email content (subject or snippet)",
+            "action": "skipped"
+        }
+    
+    email_content = snippet or subject
+    
+    classification = await classify_email(subject, email_content)
+    logger.info(f"Classification: {classification}")
     
     if not classification.get("isOrderEmail", False):
         return {
             "message": "Email is not order-related",
-            "action": "skipped"
+            "action": "skipped",
+            "classification": classification
         }
     
-    extraction = await extract_order_data(body.subject or "", email_content)
+    extraction = await extract_order_data(subject, email_content)
+    logger.info(f"Extraction: {extraction}")
     
     if not extraction.get("extraction_success", False):
         return {
@@ -54,7 +105,12 @@ async def handle_webhook(body: WebhookRequest, db: AsyncSession = Depends(get_db
     
     order_number = extraction.get("order_number")
     if not order_number:
-        raise HTTPException(status_code=400, detail="Could not extract order number")
+        return {
+            "message": "Could not extract order number",
+            "action": "failed",
+            "classification": classification,
+            "extraction": extraction
+        }
     
     vendor = extraction.get("vendor")
     customer_name = extraction.get("customer_name")
@@ -78,7 +134,10 @@ async def handle_webhook(body: WebhookRequest, db: AsyncSession = Depends(get_db
             for item in items:
                 price = item.get("price")
                 if isinstance(price, str):
-                    price = float(price.replace("AED", "").replace("AED", "").replace("$", "").strip()) if price else None
+                    try:
+                        price = float(price.replace("AED", "").replace("$", "").strip())
+                    except:
+                        price = None
                 
                 order_item = OrderItem(
                     id=str(uuid.uuid4()),
@@ -116,7 +175,10 @@ async def handle_webhook(body: WebhookRequest, db: AsyncSession = Depends(get_db
             for item in items:
                 price = item.get("price")
                 if isinstance(price, str):
-                    price = float(price.replace("AED", "").replace("$", "").strip()) if price else None
+                    try:
+                        price = float(price.replace("AED", "").replace("$", "").strip())
+                    except:
+                        price = None
                 
                 order_item = OrderItem(
                     id=str(uuid.uuid4()),
