@@ -86,6 +86,13 @@ function Settings() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const copyCurl = () => {
+    const curl = `curl -X POST "${getWebhookUrl()}" -H "Content-Type: application/json" -d '{"subject": "{{ $json.subject }}", "body": "{{ $json.body }}", "snippet": "{{ $json.snippet }}", "from": "{{ $json.from }}"}'`
+    navigator.clipboard.writeText(curl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -130,6 +137,13 @@ function Settings() {
           >
             {copied ? '✓ Copied!' : 'Copy URL'}
           </button>
+          <button
+            onClick={copyCurl}
+            className="btn btn-secondary"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            Copy cURL
+          </button>
         </div>
         <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'white', borderRadius: '0.375rem', fontSize: '0.8rem' }}>
           <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: '#1e293b' }}>Expected Request Format:</div>
@@ -140,6 +154,12 @@ function Settings() {
   "snippet": "Short snippet...",
   "from": "order@amazon.com"
 }`}
+          </pre>
+        </div>
+        <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#1e293b', borderRadius: '0.375rem', fontSize: '0.75rem' }}>
+          <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: '#f8fafc' }}>cURL (for n8n HTTP Request node):</div>
+          <pre style={{ margin: 0, overflow: 'auto', color: '#86efac', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+{`curl -X POST "${getWebhookUrl()}" -H "Content-Type: application/json" -d '{"subject": "{{ $json.subject }}", "body": "{{ $json.body }}", "snippet": "{{ $json.snippet }}", "from": "{{ $json.from }}"}'`}
           </pre>
         </div>
       </div>

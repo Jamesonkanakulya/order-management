@@ -1,0 +1,11 @@
+# n8n HTTP Request - cURL import
+
+curl -X POST \
+  "https://your-domain.com/api/webhooks/order" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "{{ $json.subject }}",
+    "body": "{{ $json.body }}",
+    "snippet": "{{ $json.snippet }}",
+    "from": "{{ $json.from }}"
+  }'
