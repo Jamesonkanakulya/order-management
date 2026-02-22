@@ -1,38 +1,24 @@
-FROM node:20-alpine AS builder
+# Stage 1: Build React frontend
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /build/frontend
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm install
+COPY frontend/ .
+RUN npx vite build --outDir /build/frontend/dist --emptyOutDir
+
+# Stage 2: Python backend
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY backend/package*.json ./backend/
-COPY frontend/package*.json ./frontend/
-COPY frontend/vite.config.js ./frontend/
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /app/backend
-RUN npm install
+COPY backend/ .
 
-WORKDIR /app/frontend
-RUN npm install
+COPY --from=frontend-builder /build/frontend/dist ./static
 
-COPY backend/src ./backend/src
-COPY frontend/src ./frontend/src
-COPY frontend/index.html ./
+EXPOSE 8000
 
-RUN npm run build
-
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY --from=builder /app/backend/node_modules ./backend/node_modules
-COPY backend/src ./backend/src
-COPY backend/package*.json ./backend/
-
-COPY --from=builder /app/frontend/dist ./frontend/dist
-
-ENV PORT=3000
-ENV NODE_ENV=production
-
-EXPOSE 3000
-
-WORKDIR /app/backend
-
-CMD ["node", "src/index.js"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
