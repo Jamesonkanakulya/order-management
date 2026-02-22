@@ -1,6 +1,9 @@
 import os
 import json
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 EXTRACTION_SYSTEM_PROMPT = """# Email Order Extraction Agent
 
@@ -36,20 +39,21 @@ You are an intelligent email parsing assistant specialized in extracting order i
 - Extract from email if available
 
 ## Output Format
-Return JSON:
+Return ONLY valid JSON (no markdown):
 {{
-  "extraction_success": true/false,
+  "extraction_success": true,
   "vendor": "Vendor Name",
   "customer_name": "Customer Name or null",
-  "order_number": "Order Number",
-  "order_status": "Ordered|Shipped|Out for Delivery|Delivered",
-  "delivery_info": {{"location": "City", "expected_date": "Date"}},
-  "items": [{{"item_name": "Product", "quantity": 1, "price": "100.00", "currency": "AED"}}],
+  "order_number": "408-3351522-8481145",
+  "order_status": "Ordered",
+  "delivery_info": {{"location": "Dubai", "expected_date": "2025-01-25"}},
+  "items": [{{"item_name": "Product Name", "quantity": 1, "price": "100.00", "currency": "AED"}}],
   "order_total": {{"amount": "100.00", "currency": "AED"}},
-  "confidence": "High|Medium|Low"
+  "confidence": "High"
 }}
 
-If extraction fails: {{"extraction_success": false, "error": "reason", "confidence": "Low"}}"""
+If extraction fails:
+{{"extraction_success": false, "error": "reason", "confidence": "Low"}}"""
 
 CLASSIFICATION_SYSTEM_PROMPT = """# Email Classification Agent
 
@@ -58,64 +62,96 @@ Classify as ORDER email if contains:
 - Order confirmation, shipped, delivery keywords
 - Package, tracking, dispatched
 
-Return JSON:
-{{"isOrderEmail": true/false, "confidence": "High|Medium|Low", "indicators": ["list"], "reason": "text"}}"""
+Return ONLY valid JSON:
+{{"isOrderEmail": true, "confidence": "High", "indicators": ["order number"], "reason": "Contains order number"}}"""
 
 
-async def classify_email(subject: str, body: str) -> dict:
-    """Classify if email is order-related."""
-    content = f"Subject: {subject}\n\n{body}"
+async def call_ai_api(prompt: str, user_content: str) -> dict:
+    """Call GitHub AI API with better error handling"""
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        logger.error("GITHUB_TOKEN not set!")
+        return {"error": "GITHUB_TOKEN not configured"}
+    
+    model = os.getenv("AI_MODEL", "openai/gpt-5")
+    endpoint = os.getenv("AI_ENDPOINT", "https://models.github.ai/inference")
+    
+    logger.info(f"Calling AI API with model: {model}")
     
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "https://models.github.ai/inference/chat/completions",
+                f"{endpoint}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}",
+                    "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "openai/gpt-5",
+                    "model": model,
                     "messages": [
-                        {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
-                        {"role": "user", "content": content}
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": user_content}
                     ],
                     "temperature": 0.1
                 },
                 timeout=30.0
             )
+            
+            logger.info(f"AI API response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                error_text = response.text
+                logger.error(f"AI API error: {error_text}")
+                return {"error": f"API error: {response.status_code}", "details": error_text}
+            
             result = response.json()
-            return json.loads(result["choices"][0]["message"]["content"])
+            logger.info(f"AI API result keys: {result.keys()}")
+            
+            if "choices" not in result:
+                logger.error(f"No choices in result: {result}")
+                return {"error": "No choices in API response", "details": str(result)}
+            
+            content = result["choices"][0]["message"]["content"]
+            logger.info(f"AI content: {content[:200]}...")
+            
+            # Try to parse JSON from content
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown
+                import re
+                json_match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+                raise
+            
     except Exception as e:
-        print(f"Classification error: {e}")
+        logger.error(f"AI API exception: {e}")
+        return {"error": str(e)}
+
+
+async def classify_email(subject: str, body: str) -> dict:
+    """Classify if email is order-related."""
+    content = f"Subject: {subject}\n\n{body[:2000]}"  # Limit body size
+    
+    try:
+        result = await call_ai_api(CLASSIFICATION_SYSTEM_PROMPT, content)
+        logger.info(f"Classification result: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Classification error: {e}")
         return {"isOrderEmail": False, "confidence": "Low", "error": str(e)}
 
 
 async def extract_order_data(subject: str, body: str) -> dict:
     """Extract order data from email."""
-    content = f"Subject: {subject}\n\n{body}"
+    content = f"Subject: {subject}\n\n{body[:3000]}"  # Limit body size
     now = "2026-02-22"
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://models.github.ai/inference/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "openai/gpt-5",
-                    "messages": [
-                        {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT.format(now=now)},
-                        {"role": "user", "content": content}
-                    ],
-                    "temperature": 0.1
-                },
-                timeout=30.0
-            )
-            result = response.json()
-            return json.loads(result["choices"][0]["message"]["content"])
+        result = await call_ai_api(EXTRACTION_SYSTEM_PROMPT.format(now=now), content)
+        logger.info(f"Extraction result: {result}")
+        return result
     except Exception as e:
-        print(f"Extraction error: {e}")
+        logger.error(f"Extraction error: {e}")
         return {"extraction_success": False, "error": str(e), "confidence": "Low"}
