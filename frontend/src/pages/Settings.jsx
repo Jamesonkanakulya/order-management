@@ -7,6 +7,7 @@ function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -74,6 +75,17 @@ function Settings() {
     }
   }
 
+  const getWebhookUrl = () => {
+    const baseUrl = window.location.origin
+    return `${baseUrl}/api/webhooks/order`
+  }
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(getWebhookUrl())
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -96,6 +108,41 @@ function Settings() {
           {message.text}
         </div>
       )}
+
+      <div className="settings-section" style={{ background: '#eff6ff', borderColor: '#3b82f6' }}>
+        <h2 className="settings-title" style={{ color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>🔗</span> n8n Webhook URL
+        </h2>
+        <p style={{ color: '#1e40af', marginBottom: '1rem', fontSize: '0.875rem' }}>
+          Copy this URL and add it to your n8n workflow's HTTP Request node. Send raw email data to automatically process orders.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+          <input
+            type="text"
+            readOnly
+            value={getWebhookUrl()}
+            style={{ flex: 1, padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #3b82f6', fontFamily: 'monospace', fontSize: '0.875rem', background: 'white' }}
+          />
+          <button
+            onClick={copyWebhook}
+            className="btn btn-primary"
+            style={{ whiteSpace: 'nowrap', minWidth: '100px' }}
+          >
+            {copied ? '✓ Copied!' : 'Copy URL'}
+          </button>
+        </div>
+        <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'white', borderRadius: '0.375rem', fontSize: '0.8rem' }}>
+          <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: '#1e293b' }}>Expected Request Format:</div>
+          <pre style={{ margin: 0, overflow: 'auto', fontSize: '0.75rem', color: '#475569' }}>
+{`{
+  "subject": "Your Amazon order #123-456",
+  "body": "Full email body text...",
+  "snippet": "Short snippet...",
+  "from": "order@amazon.com"
+}`}
+          </pre>
+        </div>
+      </div>
 
       <div className="settings-section">
         <h2 className="settings-title">Vendors</h2>
@@ -140,27 +187,6 @@ function Settings() {
       </div>
 
       <div className="settings-section">
-        <h2 className="settings-title">n8n Integration</h2>
-        <p style={{ color: 'var(--text-light)', marginBottom: '1rem', fontSize: '0.875rem' }}>
-          n8n handles only the email trigger. The backend handles AI classification, extraction, and database operations.
-        </p>
-        <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '0.375rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}><strong>Webhook Endpoint:</strong></div>
-          <div style={{ color: 'var(--primary)', marginBottom: '1rem' }}>POST http://your-server:3000/api/webhooks/order</div>
-          
-          <div style={{ marginBottom: '0.5rem' }}><strong>Request Body:</strong></div>
-          <pre style={{ background: 'var(--surface)', padding: '0.75rem', borderRadius: '0.25rem', overflow: 'auto' }}>
-{`{
-  "subject": "Your Amazon order #408-0237654-1573974",
-  "body": "Full email body text...",
-  "snippet": "Short snippet...",
-  "from": "order-update@amazon.com"
-}`}
-          </pre>
-        </div>
-      </div>
-
-      <div className="settings-section">
         <h2 className="settings-title">Environment Variables</h2>
         <p style={{ color: 'var(--text-light)', marginBottom: '1rem', fontSize: '0.875rem' }}>
           Configure these in your deployment environment or .env file.
@@ -179,7 +205,7 @@ function Settings() {
       <div className="settings-section">
         <h2 className="settings-title">API Documentation</h2>
         <div style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
-          <div style={{ marginBottom: '0.75rem' }}><strong>Base URL:</strong> http://localhost:3000/api</div>
+          <div style={{ marginBottom: '0.75rem' }}><strong>Base URL:</strong> {window.location.origin}/api</div>
           
           <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Orders</strong></div>
           <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
@@ -203,11 +229,6 @@ function Settings() {
           <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Stats</strong></div>
           <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
             <li>GET /stats - Get dashboard statistics</li>
-          </ul>
-
-          <div style={{ marginBottom: '0.5rem', marginTop: '1rem' }}><strong>Webhooks</strong></div>
-          <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.75' }}>
-            <li>POST /webhooks/order - Process email (n8n integration)</li>
           </ul>
         </div>
       </div>
