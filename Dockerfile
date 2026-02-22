@@ -5,7 +5,6 @@ WORKDIR /app
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 COPY frontend/vite.config.js ./frontend/
-COPY frontend/index.html ./
 
 WORKDIR /app/backend
 RUN npm install
@@ -15,6 +14,7 @@ RUN npm install
 
 COPY backend/src ./backend/src
 COPY frontend/src ./frontend/src
+COPY frontend/index.html ./
 
 RUN npm run build
 
