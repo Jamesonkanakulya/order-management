@@ -322,9 +322,9 @@ function OrderModal({ order, vendors, statuses, onClose, onSave }) {
 
           <div className="form-group">
             <label className="form-label">Location</label>
+            <input
               type="text"
-              className            <input
-="form-input"
+              className="form-input"
               value={formData.location}
               onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))}
             />
