@@ -1,31 +1,18 @@
 version: '3.8'
 
 services:
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: order-management-backend
+    container_name: order-management
     ports:
       - "3000:3000"
     volumes:
-      - ./backend/data:/app/data
+      - ./backend/data:/app/backend/data
     environment:
       - PORT=3000
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - AI_ENDPOINT=${AI_ENDPOINT:-https://models.github.ai/inference}
       - AI_MODEL=${AI_MODEL:-openai/gpt-5}
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: order-management-frontend
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:3000/api
-    depends_on:
-      - backend
     restart: unless-stopped

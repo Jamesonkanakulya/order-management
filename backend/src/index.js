@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { './models initDatabase } from/database.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { initDatabase } from './models/database.js';
 import orderRoutes from './routes/orders.js';
 import settingsRoutes from './routes/settings.js';
 import webhookRoutes from './routes/webhooks.js';
@@ -26,6 +28,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`Order Management API running on port ${PORT}`);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendPath = path.join(__dirname, '../frontend/dist');
+
+app.use(express.static(frontendPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Order Management running on port ${PORT}`);
 });
