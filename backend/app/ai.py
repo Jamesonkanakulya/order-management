@@ -11,17 +11,25 @@ You are an intelligent email parsing assistant specialized in extracting order i
 ## Supported Vendors
 Amazon, Noon, Namshi, Sharaf DG, Carrefour, Other online retailers
 
+## CRITICAL: Order Number Patterns
+Look for these patterns to find order numbers:
+- "#408-3351522-8481145" (Amazon format)
+- "Order number 408-3351522-8481145"
+- "Order #408-3351522-8481145"
+- "Order ID: 408-3351522-8481145"
+- Any 10-20 digit alphanumeric code after "order", "#", or "order number"
+
 ## Important: Work with Gmail Snippets
 Gmail snippets are truncated previews. Extract ANY available information:
-- Order numbers anywhere in text (e.g., "#408-3351522-8481145", "Order 12345")
-- Vendor name from email sender (e.g., "amazon.ae", "noon.com")
+- Order numbers anywhere in text (patterns above)
+- Vendor name from email sender (e.g., "amazon.ae", "noon.com") or subject line
 - Status keywords: "Order Confirmation" = Ordered, "Shipped" = Shipped, "Out for Delivery", "Delivered"
 - Prices with currency symbols (AED, USD, SAR, etc.)
 - Any dates mentioned for delivery
 - Customer name from "Hello [Name]" or "Dear [Name]"
 
 ## Information to Extract
-1. Order Number - complete alphanumeric identifier
+1. Order Number - MUST extract this! Look for patterns like "Order number 123-456789" or "#123-456789"
 2. Item Name(s) - full product name if visible
 3. Price - include currency (AED, USD, SAR, etc.)
 4. Order Status - "Ordered" | "Shipped" | "Out for Delivery" | "Delivered"
@@ -42,8 +50,8 @@ Return ONLY valid JSON (no markdown):
   "confidence": "High"
 }
 
-If NO order information can be found at all:
-{"extraction_success": false, "error": "No order information found", "confidence": "Low"}"""
+If NO order number can be found:
+{"extraction_success": false, "error": "No order number found", "confidence": "Low"}"""
 
 CLASSIFICATION_SYSTEM_PROMPT = """# Email Classification Agent
 
