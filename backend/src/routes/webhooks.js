@@ -1,0 +1,116 @@
+import express from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { getDb } from '../models/database.js';
+
+const router = express.Router();
+
+router.post('/order', (req, res) => {
+  const db = getDb();
+  const { output } = req.body;
+
+  if (!output) {
+    return res.status(400).json({ error: 'Missing order data' });
+  }
+
+  const { 
+    order_number, 
+    vendor, 
+    customer_name, 
+    order_status, 
+    delivery_info, 
+    items, 
+    order_total 
+  } = output;
+
+  if (!order_number) {
+    return res.status(400).json({ error: 'Missing order number' });
+  }
+
+  try {
+    const existingOrder = db.prepare('SELECT * FROM orders WHERE order_number = ?').get(order_number);
+
+    if (existingOrder) {
+      const updateOrder = db.prepare(`
+        UPDATE orders 
+        SET vendor = ?, customer_name = ?, status = ?, 
+            location = ?, expected_date = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `);
+      
+      updateOrder.run(
+        vendor ?? existingOrder.vendor,
+        customer_name ?? existingOrder.customer_name,
+        order_status ?? existingOrder.status,
+        delivery_info?.location ?? existingOrder.location,
+        delivery_info?.expected_date ?? existingOrder.expected_date,
+        existingOrder.id
+      );
+
+      if (items && items.length > 0) {
+        db.prepare('DELETE FROM order_items WHERE order_id = ?').run(existingOrder.id);
+        
+        const insertItem = db.prepare(`
+          INSERT INTO order_items (id, order_id, item_name, quantity, price, currency)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        
+        for (const item of items) {
+          const price = item.price ? parseFloat(item.price.replace(/[^0-9.-]+/g, '')) : null;
+          insertItem.run(uuidv4(), existingOrder.id, item.item_name, item.quantity || 1, price, item.currency || 'AED');
+        }
+      }
+
+      const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(existingOrder.id);
+      const orderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(existingOrder.id);
+
+      res.json({ 
+        message: 'Order updated successfully', 
+        order: { ...updatedOrder, items: orderItems },
+        action: 'updated'
+      });
+    } else {
+      const id = uuidv4();
+      
+      const insertOrder = db.prepare(`
+        INSERT INTO orders (id, order_number, vendor, customer_name, status, location, expected_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      insertOrder.run(
+        id,
+        order_number,
+        vendor || 'Unknown',
+        customer_name || 'Unknown',
+        order_status || 'Ordered',
+        delivery_info?.location || '',
+        delivery_info?.expected_date || ''
+      );
+
+      if (items && items.length > 0) {
+        const insertItem = db.prepare(`
+          INSERT INTO order_items (id, order_id, item_name, quantity, price, currency)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        
+        for (const item of items) {
+          const price = item.price ? parseFloat(item.price.replace(/[^0-9.-]+/g, '')) : null;
+          insertItem.run(uuidv4(), id, item.item_name, item.quantity || 1, price, item.currency || 'AED');
+        }
+      }
+
+      const newOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      const orderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(id);
+
+      res.status(201).json({ 
+        message: 'Order created successfully', 
+        order: { ...newOrder, items: orderItems },
+        action: 'created'
+      });
+    }
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
