@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from .database import get_db
-from .models import Setting
-from .schemas import SettingResponse, VendorsResponse, StatusesResponse
+from ..database import get_db
+from ..models import Setting
+from ..schemas import SettingResponse, VendorsResponse, StatusesResponse
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 

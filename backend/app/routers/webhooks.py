@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
-from .database import get_db
-from .models import Order, OrderItem
-from .schemas import WebhookRequest, WebhookResponse
-from .ai import classify_email, extract_order_data
+from ..database import get_db
+from ..models import Order, OrderItem
+from ..schemas import WebhookRequest, WebhookResponse
+from ..ai import classify_email, extract_order_data
 import uuid
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])

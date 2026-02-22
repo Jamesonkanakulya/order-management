@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from datetime import datetime
-from .database import get_db
-from .models import Order, OrderItem, Setting
-from .schemas import (
+from ..database import get_db
+from ..models import Order, OrderItem, Setting
+from ..schemas import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
     SettingResponse, VendorsResponse, StatusesResponse
 )

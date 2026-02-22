@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
-from .database import get_db
-from .models import Order
-from .schemas import StatsResponse
+from ..database import get_db
+from ..models import Order
+from ..schemas import StatsResponse
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
