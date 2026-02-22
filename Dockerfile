@@ -2,8 +2,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+COPY package*.json ./
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
+COPY frontend/vite.config.js ./frontend/
+COPY frontend/index.html ./
+
+RUN npm install
 
 WORKDIR /app/backend
 RUN npm install
@@ -13,10 +18,7 @@ RUN npm install
 
 COPY backend/src ./backend/src
 COPY frontend/src ./frontend/src
-COPY frontend/index.html ./frontend/
-COPY frontend/vite.config.js ./frontend/
 
-WORKDIR /app/frontend
 RUN npm run build
 
 FROM node:20-alpine
